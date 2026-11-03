@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>닭 피하기 60 (Avoid Chickens 60)</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            touch-action: manipulation;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        canvas {
+            display: block;
+            margin: 0 auto;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
+            touch-action: none;
+        }
+        .touch-btn {
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-white min-h-screen flex flex-col items-center justify-center p-2 sm:p-4">
+
+    <!-- App Container (Mobile friendly 360px minimum width for GitHub Pages) -->
+    <div class="w-full max-w-[420px] flex flex-col items-center bg-slate-800 p-3 sm:p-4 rounded-2xl border border-slate-700 shadow-2xl relative overflow-hidden">
+        
+        <!-- 1. START SCREEN -->
+        <div id="startScreen" class="w-full flex flex-col items-center text-center py-6 space-y-5">
+            <div class="space-y-2">
+                <span class="text-4xl">🐔🚗</span>
+                <h1 class="text-3xl font-extrabold tracking-tight text-amber-400">닭 피하기 60</h1>
+                <p class="text-xs text-amber-200/70 font-semibold uppercase tracking-widest">Avoid Chickens 60s</p>
+            </div>
+
+            <div class="bg-slate-700/60 p-4 rounded-xl border border-slate-600/50 w-full space-y-3">
+                <p class="text-sm font-medium text-slate-200">
+                    <span class="text-amber-400 font-bold">목표:</span> 60초 동안 4차선 도로에서 역주행하는 닭을 피하세요!
+                </p>
+                <div class="h-px bg-slate-600/50 w-full"></div>
+                <p class="text-xs text-slate-300">
+                    <span class="text-emerald-400 font-bold">조작:</span> 키보드 <kbd class="px-1.5 py-0.5 bg-slate-800 rounded border border-slate-600 text-slate-200 text-xs">←</kbd> <kbd class="px-1.5 py-0.5 bg-slate-800 rounded border border-slate-600 text-slate-200 text-xs">→</kbd> 또는 하단 <span class="text-amber-400 font-bold">◀ ▶</span> 버튼
+                </p>
+            </div>
+
+            <!-- Audio Test Button to initialize AudioContext explicitly -->
+            <button id="soundTestBtn" type="button" class="w-full py-2.5 bg-slate-700 hover:bg-slate-600 border border-slate-500 rounded-xl text-xs text-slate-200 font-bold flex items-center justify-center space-x-2 transition active:scale-95">
+                <span>🔊</span>
+                <span id="soundTestText">소리 테스트 (닭 울음소리 꼬꼬댁!)</span>
+            </button>
+
+            <button id="startBtn" type="button" class="w-full py-4 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-extrabold text-lg rounded-xl shadow-lg shadow-orange-500/30 active:scale-95 transition transform">
+                게임 시작
+            </button>
+        </div>
+
+        <!-- 2. PLAY SCREEN CONTAINER -->
+        <div id="playScreen" class="w-full hidden flex-col items-center">
+            <!-- Header (Score & Timer) -->
+            <div class="w-full flex justify-between items-center bg-slate-900/80 px-4 py-2.5 rounded-xl border border-slate-700 mb-3 text-sm">
+                <div class="flex items-center space-x-2">
+                    <span class="text-slate-400 font-medium">피한 닭:</span>
+                    <span id="scoreDisplay" class="text-xl font-black text-amber-400">0</span>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <span class="text-slate-400 font-medium">남은 시간:</span>
+                    <span id="timerDisplay" class="text-xl font-black text-emerald-400">60초</span>
+                </div>
+            </div>
+
+            <!-- Game Canvas Container -->
+            <div class="relative w-full aspect-[3/4] max-h-[480px]">
+                <canvas id="gameCanvas" class="w-full h-full bg-slate-800"></canvas>
+            </div>
+
+            <!-- Touch Controls for Mobile/Screen Buttons -->
+            <div class="w-full grid grid-cols-2 gap-3 mt-3">
+                <button id="btnLeft" type="button" class="touch-btn py-5 bg-slate-700 hover:bg-slate-600 active:bg-amber-500 active:text-slate-950 border border-slate-600 rounded-xl text-3xl font-bold text-slate-200 flex items-center justify-center shadow-md select-none cursor-pointer">
+                    ◀
+                </button>
+                <button id="btnRight" type="button" class="touch-btn py-5 bg-slate-700 hover:bg-slate-600 active:bg-amber-500 active:text-slate-950 border border-slate-600 rounded-xl text-3xl font-bold text-slate-200 flex items-center justify-center shadow-md select-none cursor-pointer">
+                    ▶
+                </button>
+            </div>
+        </div>
+
+        <!-- 3. GAME OVER SCREEN -->
+        <div id="gameOverScreen" class="w-full hidden flex-col items-center text-center py-8 space-y-6">
+            <div class="space-y-2">
+                <span class="text-5xl">🏁</span>
+                <h2 class="text-2xl font-black text-slate-100">게임 종료!</h2>
+            </div>
+
+            <div class="bg-slate-700/50 p-6 rounded-2xl border border-slate-600/60 w-full space-y-2">
+                <p class="text-sm text-slate-300">최종 기록</p>
+                <p class="text-3xl font-extrabold text-amber-400">
+                    피한 닭 <span id="finalScore" class="text-4xl text-white">0</span>마리
+                </p>
+            </div>
+
+            <button id="restartBtn" type="button" class="w-full py-4 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-extrabold text-lg rounded-xl shadow-lg shadow-emerald-500/30 active:scale-95 transition transform">
+                다시 하기
+            </button>
+        </div>
+
+    </div>
+
+    <!-- Vanilla JS Logic & Web Audio Synthesizer -->
+    <script>
+        // --- Web Audio API Synthesizer for Rooster Crowing ---
+        let audioCtx = null;
+
+        function initAudio() {
+            if (!audioCtx) {
+                const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                if (AudioContextClass) {
+                    audioCtx = new AudioContextClass();
+                }
+            }
+            if (audioCtx && audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        // Synthesize Rooster Sound ("Cock-a-doodle-doo" / 꼬꼬댁)
+        function playRoosterCrow() {
+            initAudio();
+            if (!audioCtx) return;
+
+            const now = audioCtx.currentTime;
+
+            // Main Oscillator (Sawtooth tone for rooster voice)
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+
+            osc.type = 'sawtooth';
+
+            // Frequency envelope: Pitch bends simulating rooster crow
+            osc.frequency.setValueAtTime(320, now);
+            osc.frequency.linearRampToValueAtTime(580, now + 0.08);
+            osc.frequency.exponentialRampToValueAtTime(380, now + 0.18);
+            osc.frequency.linearRampToValueAtTime(620, now + 0.28);
+
+            // Volume envelope
+            gain.gain.setValueAtTime(0.01, now);
+            gain.gain.linearRampToValueAtTime(0.18, now + 0.05);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
+
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            osc.start(now);
+            osc.stop(now + 0.35);
+        }
+
+        // --- DOM Elements ---
+        const startScreen = document.getElementById('startScreen');
+        const playScreen = document.getElementById('playScreen');
+        const gameOverScreen = document.getElementById('gameOverScreen');
+        
+        const startBtn = document.getElementById('startBtn');
+        const restartBtn = document.getElementById('restartBtn');
+        const soundTestBtn = document.getElementById('soundTestBtn');
+        const soundTestText = document.getElementById('soundTestText');
+        const btnLeft = document.getElementById('btnLeft');
+        const btnRight = document.getElementById('btnRight');
+        
+        const scoreDisplay = document.getElementById('scoreDisplay');
+        const timerDisplay = document.getElementById('timerDisplay');
+        const finalScore = document.getElementById('finalScore');
+        
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Canvas Setup (Internal Resolution)
+        const CANVAS_WIDTH = 360;
+        const CANVAS_HEIGHT = 480;
+        canvas.width = CANVAS_WIDTH;
+        canvas.height = CANVAS_HEIGHT;
+
+        // Constants & Lane Definitions
+        const TOTAL_LANES = 4;
+        const LANE_WIDTH = CANVAS_WIDTH / TOTAL_LANES; // 90px
+
+        // Game State Variables
+        let gameState = 'START';
+        let score = 0;
+        let timeRemaining = 60;
+        let lastTime = 0;
+        let timerInterval = null;
+        let spawnInterval = null;
+        let animationFrameId = null;
+
+        // Player Car
+        const player = {
+            lane: 1,
+            y: CANVAS_HEIGHT - 75,
+            width: 44,
+            height: 60,
+            moveLeft() {
+                if (this.lane > 0) this.lane--;
+            },
+            moveRight() {
+                if (this.lane < TOTAL_LANES - 1) this.lane++;
+            }
+        };
+
+        let chickens = [];
+        let scorePopups = [];
+
+        const CHICKEN_SPEED = CANVAS_HEIGHT / 2.0; // 2 seconds top to bottom
+        const CHICKEN_SIZE = 38;
+
+        // Sound Test Handler
+        soundTestBtn.addEventListener('click', () => {
+            initAudio();
+            playRoosterCrow();
+            soundTestText.textContent = "🔊 재생 성공! (꼬꼬댁!)";
+            setTimeout(() => {
+                soundTestText.textContent = "소리 테스트 (닭 울음소리 꼬꼬댁!)";
+            }, 1200);
+        });
+
+        // Start Game
+        function startGame() {
+            initAudio();
+            gameState = 'PLAYING';
+            score = 0;
+            timeRemaining = 60;
+            player.lane = 1;
+            chickens = [];
+            scorePopups = [];
+
+            startScreen.classList.add('hidden');
+            gameOverScreen.classList.add('hidden');
+            playScreen.classList.remove('hidden');
+            playScreen.classList.add('flex');
+
+            scoreDisplay.textContent = score;
+            timerDisplay.textContent = `${timeRemaining}초`;
+
+            clearInterval(timerInterval);
+            clearInterval(spawnInterval);
+
+            // Timer (1 sec)
+            timerInterval = setInterval(() => {
+                timeRemaining--;
+                timerDisplay.textContent = `${timeRemaining}초`;
+                if (timeRemaining <= 0) {
+                    endGame();
+                }
+            }, 1000);
+
+            // Spawn chickens every 0.7s
+            spawnInterval = setInterval(spawnChickenWave, 700);
+
+            lastTime = performance.now();
+            if (animationFrameId) cancelAnimationFrame(animationFrameId);
+            animationFrameId = requestAnimationFrame(gameLoop);
+        }
+
+        // Spawn Wave: 0.7s interval, max 2 chickens simultaneously
+        function spawnChickenWave() {
+            if (gameState !== 'PLAYING') return;
+            
+            const count = Math.random() > 0.5 ? 2 : 1;
+            const availableLanes = [0, 1, 2, 3];
+            let soundPlayed = false;
+
+            for (let i = 0; i < count; i++) {
+                if (availableLanes.length <= 2) break; // Always leave 2 open lanes
+
+                const laneIndex = Math.floor(Math.random() * availableLanes.length);
+                const lane = availableLanes.splice(laneIndex, 1)[0];
+
+                chickens.push({
+                    lane: lane,
+                    y: -CHICKEN_SIZE,
+                    width: CHICKEN_SIZE,
+                    height: CHICKEN_SIZE,
+                    scored: false
+                });
+
+                if (!soundPlayed) {
+                    playRoosterCrow();
+                    soundPlayed = true;
+                }
+            }
+        }
+
+        // End Game
+        function endGame() {
+            gameState = 'GAMEOVER';
+            clearInterval(timerInterval);
+            clearInterval(spawnInterval);
+            if (animationFrameId) cancelAnimationFrame(animationFrameId);
+
+            finalScore.textContent = score;
+
+            playScreen.classList.add('hidden');
+            playScreen.classList.remove('flex');
+            gameOverScreen.classList.remove('hidden');
+            gameOverScreen.classList.add('flex');
+        }
+
+        // Controls
+        function handleLeft(e) {
+            if (e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            initAudio();
+            if (gameState === 'PLAYING') player.moveLeft();
+        }
+
+        function handleRight(e) {
+            if (e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            initAudio();
+            if (gameState === 'PLAYING') player.moveRight();
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') handleLeft();
+            else if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') handleRight();
+        });
+
+        btnLeft.addEventListener('pointerdown', handleLeft);
+        btnRight.addEventListener('pointerdown', handleRight);
+
+        startBtn.addEventListener('click', startGame);
+        restartBtn.addEventListener('click', startGame);
+
+        // Game Loop
+        function gameLoop(timestamp) {
+            if (gameState !== 'PLAYING') return;
+
+            const dt = (timestamp - lastTime) / 1000;
+            lastTime = timestamp;
+
+            update(dt);
+            render();
+
+            animationFrameId = requestAnimationFrame(gameLoop);
+        }
+
+        function update(dt) {
+            const playerX = player.lane * LANE_WIDTH + (LANE_WIDTH - player.width) / 2;
+            const playerY = player.y;
+
+            for (let i = chickens.length - 1; i >= 0; i--) {
+                const c = chickens[i];
+                c.y += CHICKEN_SPEED * dt;
+
+                const chickenX = c.lane * LANE_WIDTH + (LANE_WIDTH - c.width) / 2;
+                const chickenY = c.y;
+
+                // Collision Detection
+                if (
+                    playerX < chickenX + c.width &&
+                    playerX + player.width > chickenX &&
+                    playerY < chickenY + c.height &&
+                    playerY + player.height > chickenY
+                ) {
+                    endGame();
+                    return;
+                }
+
+                // Dodged chicken score (+1)
+                if (!c.scored && c.y > player.y + player.height) {
+                    c.scored = true;
+                    score += 1;
+                    scoreDisplay.textContent = score;
+
+                    scorePopups.push({
+                        x: chickenX + c.width / 2,
+                        y: playerY,
+                        life: 0.5
+                    });
+                }
+
+                if (c.y > CANVAS_HEIGHT + 50) {
+                    chickens.splice(i, 1);
+                }
+            }
+
+            for (let i = scorePopups.length - 1; i >= 0; i--) {
+                const p = scorePopups[i];
+                p.life -= dt;
+                p.y -= 30 * dt;
+                if (p.life <= 0) scorePopups.splice(i, 1);
+            }
+        }
+
+        function render() {
+            // Road background
+            ctx.fillStyle = '#334155';
+            ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+            // 4 Lanes
+            ctx.strokeStyle = '#64748b';
+            ctx.lineWidth = 3;
+            ctx.setLineDash([15, 15]);
+
+            for (let i = 1; i < TOTAL_LANES; i++) {
+                ctx.beginPath();
+                ctx.moveTo(i * LANE_WIDTH, 0);
+                ctx.lineTo(i * LANE_WIDTH, CANVAS_HEIGHT);
+                ctx.stroke();
+            }
+            ctx.setLineDash([]);
+
+            // Shoulders
+            ctx.fillStyle = '#f59e0b';
+            ctx.fillRect(0, 0, 4, CANVAS_HEIGHT);
+            ctx.fillRect(CANVAS_WIDTH - 4, 0, 4, CANVAS_HEIGHT);
+
+            // Player Car
+            const playerX = player.lane * LANE_WIDTH + (LANE_WIDTH - player.width) / 2;
+            drawCar(playerX, player.y, player.width, player.height);
+
+            // Chickens
+            chickens.forEach(c => {
+                const chickenX = c.lane * LANE_WIDTH + (LANE_WIDTH - c.width) / 2;
+                drawChicken(chickenX, c.y, c.width, c.height);
+            });
+
+            // Score Popups (+1)
+            scorePopups.forEach(p => {
+                const alpha = Math.max(0, p.life / 0.5);
+                ctx.fillStyle = `rgba(52, 211, 153, ${alpha})`;
+                ctx.font = 'bold 22px system-ui, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('+1', p.x, p.y);
+            });
+        }
+
+        function drawCar(x, y, width, height) {
+            ctx.save();
+            ctx.translate(x, y);
+
+            ctx.fillStyle = 'rgba(0,0,0,0.25)';
+            ctx.fillRect(3, 3, width, height);
+
+            ctx.fillStyle = '#3b82f6';
+            ctx.beginPath();
+            ctx.roundRect(0, 0, width, height, 8);
+            ctx.fill();
+
+            ctx.fillStyle = '#1e3a8a';
+            ctx.beginPath();
+            ctx.roundRect(6, 12, width - 12, height - 24, 4);
+            ctx.fill();
+
+            ctx.fillStyle = '#93c5fd';
+            ctx.fillRect(8, 14, width - 16, 10);
+
+            ctx.fillStyle = '#fef08a';
+            ctx.fillRect(4, 2, 8, 4);
+            ctx.fillRect(width - 12, 2, 8, 4);
+
+            ctx.fillStyle = '#ef4444';
+            ctx.fillRect(4, height - 5, 8, 3);
+            ctx.fillRect(width - 12, height - 5, 8, 3);
+
+            ctx.restore();
+        }
+
+        // Draw Detailed White Rooster
+        function drawChicken(x, y, width, height) {
+            ctx.save();
+            ctx.translate(x, y);
+
+            const cx = width / 2;
+            const cy = height / 2;
+
+            // 1. Shadow
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+            ctx.beginPath();
+            ctx.ellipse(cx, cy + 16, 17, 7, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 2. Tail Feathers
+            ctx.fillStyle = '#1e293b';
+            ctx.beginPath();
+            ctx.moveTo(cx - 8, cy - 10);
+            ctx.quadraticCurveTo(cx - 16, cy - 22, cx - 4, cy - 18);
+            ctx.quadraticCurveTo(cx, cy - 25, cx + 4, cy - 18);
+            ctx.quadraticCurveTo(cx + 16, cy - 22, cx + 8, cy - 10);
+            ctx.fill();
+
+            // 3. Wings
+            const wingGrad = ctx.createLinearGradient(0, cy - 10, 0, cy + 15);
+            wingGrad.addColorStop(0, '#ffffff');
+            wingGrad.addColorStop(0.6, '#cbd5e1');
+            wingGrad.addColorStop(1, '#64748b');
+
+            ctx.fillStyle = wingGrad;
+            ctx.beginPath();
+            ctx.ellipse(cx - 17, cy + 4, 8, 14, Math.PI / 4, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.ellipse(cx + 17, cy + 4, 8, 14, -Math.PI / 4, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 4. White Head & Body
+            const bodyGrad = ctx.createRadialGradient(cx, cy - 4, 3, cx, cy + 2, 19);
+            bodyGrad.addColorStop(0, '#ffffff');
+            bodyGrad.addColorStop(0.65, '#f1f5f9');
+            bodyGrad.addColorStop(1, '#cbd5e1');
+
+            ctx.fillStyle = bodyGrad;
+            ctx.beginPath();
+            ctx.ellipse(cx, cy + 2, 16, 18, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 5. Red Comb
+            const combGrad = ctx.createLinearGradient(cx, cy - 26, cx, cy - 10);
+            combGrad.addColorStop(0, '#ef4444');
+            combGrad.addColorStop(1, '#991b1b');
+
+            ctx.fillStyle = combGrad;
+            ctx.beginPath();
+            ctx.moveTo(cx - 12, cy - 10);
+            ctx.lineTo(cx - 15, cy - 20);
+            ctx.lineTo(cx - 9, cy - 15);
+            ctx.lineTo(cx - 5, cy - 24);
+            ctx.lineTo(cx, cy - 16);
+            ctx.lineTo(cx + 5, cy - 25);
+            ctx.lineTo(cx + 9, cy - 15);
+            ctx.lineTo(cx + 15, cy - 20);
+            ctx.lineTo(cx + 12, cy - 10);
+            ctx.closePath();
+            ctx.fill();
+
+            // 6. Wattles
+            ctx.fillStyle = '#dc2626';
+            ctx.beginPath();
+            ctx.ellipse(cx - 4, cy + 18, 3.5, 8, 0.1, 0, Math.PI * 2);
+            ctx.ellipse(cx + 4, cy + 18, 3.5, 8, -0.1, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 7. Large Yellow Beak
+            const beakGrad = ctx.createLinearGradient(cx - 9, cy + 3, cx + 9, cy + 20);
+            beakGrad.addColorStop(0, '#fbbf24');
+            beakGrad.addColorStop(0.7, '#d97706');
+            beakGrad.addColorStop(1, '#b45309');
+
+            ctx.fillStyle = beakGrad;
+            ctx.beginPath();
+            ctx.moveTo(cx - 9, cy + 4);
+            ctx.lineTo(cx + 9, cy + 4);
+            ctx.quadraticCurveTo(cx + 8, cy + 14, cx, cy + 21);
+            ctx.quadraticCurveTo(cx - 8, cy + 14, cx - 9, cy + 4);
+            ctx.fill();
+
+            // 8. Eyes & Angry Brows
+            ctx.strokeStyle = '#334155';
+            ctx.lineWidth = 2.5;
+            ctx.beginPath();
+            ctx.moveTo(cx - 12, cy - 4);
+            ctx.lineTo(cx - 3, cy - 1);
+            ctx.moveTo(cx + 12, cy - 4);
+            ctx.lineTo(cx + 3, cy - 1);
+            ctx.stroke();
+
+            ctx.fillStyle = '#f59e0b';
+            ctx.beginPath();
+            ctx.arc(cx - 7, cy + 1, 3.5, 0, Math.PI * 2);
+            ctx.arc(cx + 7, cy + 1, 3.5, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = '#000000';
+            ctx.beginPath();
+            ctx.arc(cx - 6.5, cy + 1, 1.8, 0, Math.PI * 2);
+            ctx.arc(cx + 6.5, cy + 1, 1.8, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.restore();
+        }
+    </script>
+</body>
+</html>
